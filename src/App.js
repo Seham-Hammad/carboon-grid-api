@@ -2,11 +2,11 @@ import React from 'react';
 import CarbonDetails from './components/CarbonDetails';
 import Header from './components/Header';
 import Form from './components/Form';
-import Chart from './components/Chart';
+
 import 'bootstrap/dist/css/bootstrap.min.css';
 import axios from 'axios';
 import { Bar } from 'react-chartjs-2';
-import {Card, CardBody, CardText, CardTitle, CardDeck, CardGroup,Col, Row} from "reactstrap";
+
 
 class App extends React.Component {
 
@@ -21,7 +21,9 @@ class App extends React.Component {
     error: undefined,
     average: undefined,
     Min: undefined,
-    Max:undefined,
+    Max: undefined,
+    minTimeStamp: undefined,
+    maxTimeStamp:undefined,
     chartData: {
       labels: [],
       datasets: [
@@ -43,38 +45,72 @@ class App extends React.Component {
     const from = e.target.elements.startDate.value;
     const to = e.target.elements.endDate.value;
 
-    
-    fetch (`https://api.carbonintensity.org.uk/regional/intensity/${from}/${to}/regionid/${regionid}`)
-      .then(res => {
-        if (!res.ok) {
-          throw new TypeError(res.statusText);
-        }
-        return res.json();
-      }).then(data => {
-        console.log(data);
-        const dataPoints = data.data.data;
-        console.log(dataPoints);
+    const api_call = await fetch(`https://api.carbonintensity.org.uk/regional/intensity/${from}/${to}/regionid/${regionid}`);
+    const data = await api_call.json();
+    console.log(data);
+   
+    const dataPoints = data.data.data;
+    console.log(dataPoints);
 
-       let timeSeries = [];
-       dataPoints.forEach(function (element) {
-        timeSeries.push(element.from)
+    var minIntensity = dataPoints[0].intensity.forecast;
+    var minDate = 0;
+    for (var i = 0; i < dataPoints.length; i++){
+      if (dataPoints[i].intensity.forecast < minIntensity) {
+        minIntensity = dataPoints[i].intensity.forecast;
+        if (minIntensity) {
+          minDate = dataPoints[i].from;
+          this.setState({
+            minTimeStamp:minDate
+          })
+        }
+      }
+    }
+    
+    console.log("new min intensity" + minIntensity);
+    console.log(minDate);
+           
+    
+    var maxIntensity = dataPoints[0].intensity.forecast;
+    var maxDate = 0;
+    for (var i = 0; i < dataPoints.length; i++){
+      if (dataPoints[i].intensity.forecast > maxIntensity) {
+        maxIntensity = dataPoints[i].intensity.forecast;
+        if (maxIntensity) {
+          maxDate = dataPoints[i].from;
+          this.setState({
+            maxTimeStamp:maxDate
+          })
+        }
+      }
+    }
+    console.log("new max intensity" + maxIntensity);
+    console.log(maxDate);
+
+
+
+
+
+
+    let timeSeries = [];
+    dataPoints.forEach(function (element) {
+    timeSeries.push(element.from)
         
-      });
-        console.log(timeSeries);
-        
-        let intensityReading = [];
-        dataPoints.forEach(function (element) {
-        intensityReading.push(element.intensity.forecast)
-        
-      });
-        console.log(intensityReading);
-      /**Calculate the verage of the carbon intensity withing the range */
+    });
+    console.log(timeSeries);
+          
+    let intensityReading = [];
+    dataPoints.forEach(function (element) {
+    intensityReading.push(element.intensity.forecast)
+    });
+    console.log(intensityReading);
+    
+   /**Calculate the verage of the carbon intensity withing the range */
         let sum = 0;
         let average = 0;
         let length = intensityReading.length;
         for (let i = 0; i <length; i++){
           sum += intensityReading[i]; 
-          average = sum / length;
+          average = Math.floor(sum / length);
           this.setState({
             average: average
           })
@@ -82,7 +118,8 @@ class App extends React.Component {
         console.log(sum);
         console.log(average);
 
-      /**Timestamp the min carbon intensity in the range */
+  /**The Max carbon intensity in the range */
+    
         let Min = intensityReading[0];
         for (var i = 0; i < length; i++){
           if (intensityReading[i] < Min) {
@@ -92,24 +129,26 @@ class App extends React.Component {
             })
           }
         }
-        console.log(Min)
-      /**Timestamp the min carbon intensity in the range */
+          console.log(Min)
+    
+    /**The Max carbon intensity in the range */
         let Max = intensityReading[0];
         for (var i = 0; i < length; i++){
           if (intensityReading[i] > Max) {
             Max = intensityReading[i];
-            this.setState({
-              Max:Max
-            })
+            
           }
+          this.setState({
+            Max:Max
+          })
         }
         console.log(Max)
 
     if (regionid && from) {
       this.setState({
-        regionid: data.regionid,
+        regionid: data.data.regionid,
         dnoregional:data.dnoregion,
-        shortName: data.shortname,
+        shortName: data.data.shortname,
         intensityForecast: data.data.data[0].intensity.forecast,
         intensityIndex: data.data.data[0].intensity.index,
         startDate: data.data.data[0].from,
@@ -120,10 +159,19 @@ class App extends React.Component {
           datasets: [
             {
               label: 'Carbon Reading',
-              data: intensityReading
+              data: intensityReading,
+              fill: true,
+               backgroundColor: "rgba(0,0,255,0.6)",
+               strokeColor: "rgba(220,220,220,0.8)",
+               highlightFill: "rgba(123, 239, 178, 1)",
+               highlightStroke: "rgba(123, 239, 178, 1)",
+               hoverBackgroundColor:"rgba(123, 239, 178, 1)",
+               animation: {
+                    easing: "easeInOutBack"
+               },
             }
-          ]
-        }
+          
+          ]}
       });
      
     } else {
@@ -139,12 +187,12 @@ class App extends React.Component {
        
       });
     }
-  });
+  //});
     
     axios.post('http://localhost:8080/api/save', {
       regionid: this.state.regionid,
       dnoregional: this.state.dnoregional,
-      shortName: this.state.shortname,
+      shortName: this.state.shortName,
       intensityForecast: this.state.intensityForecast,
       intensityIndex: this.state.intensityIndex,
       startDate: this.state.startDate,
@@ -155,7 +203,7 @@ class App extends React.Component {
       .catch(error => console.log(error.res))
   }
 
- 
+ // Display the statistics and current value for carbon intensity for the selected region 
   render() { 
   
     return (
@@ -171,26 +219,46 @@ class App extends React.Component {
                 options={{ maintainAspectRatio: false }} />
             </p> 
         }
-        </div>
+     </div>
         <div>
+        {
+            this.state.shortName && <p style={{color:'blue'}}>Region:
+              <span  style={{color:'black'}}> {this.state.shortName}</span> 
+              </p>
+          }
           {
-            this.state.average && <p>Average Carbon Intisity within the date range:
-              <h3> {this.state.average}</h3> 
+            this.state.intensityIndex && <p style={{color:'blue'}}>Intensity Index:
+              <span  style={{color:'black'}}> {this.state. intensityIndex}</span> 
               </p>
           } 
-        </div>
-        <div>
-          {
-            this.state.Min && <p>Minimum Carbon Intisity within the date range:
-              <h3> {this.state.Min}</h3> 
+        {
+            this.state.minTimeStamp && <p style={{color:'blue'}}>Timestamp of the minimum carbon Intensity:
+              <span style={{color:'black'}}>{this.state.minTimeStamp}</span> 
               </p>
           } 
-        </div>
-        <div>
+        
+        {
+            this.state.maxTimeStamp && <p style={{color:'blue'}}>Timestamp of the maximum carbon Intensity:
+              <span style={{color:'black'}}>{this.state.maxTimeStamp}</span> 
+              </p>
+          } 
+           {
+            this.state.average && <p style={{color:'blue'}}>Average Carbon Intisity within the date range:
+              <span style={{color:'black'}}> {this.state.average}</span> 
+              </p>
+          } 
+          
+      
           {
-            this.state.Max && <h3>Maximum Carbon Intisity within the date range:
-               {this.state.Max}
-              </h3>
+            this.state.Min && <p style={{color:'blue'}}>Minmum Carbon Intisity within the date range:
+              <span style={{color:'black'}}>{this.state.Min}</span> 
+              </p>
+          } 
+        
+          {
+            this.state.Max && <p style={{color:'blue'}}>Maximum Carbon Intisity within the date range:
+              <span style={{color:'black'}}> {this.state.Max}</span>
+              </p>
           } 
         </div>
         

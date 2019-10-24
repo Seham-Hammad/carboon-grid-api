@@ -29,7 +29,7 @@ const Header = props => {
             
           </IconButton>
           <Typography variant="display2" className={classes.title}>
-           Carbon Intensity App
+           Carbon Grid Intensity App
           </Typography>
          
         </Toolbar>
